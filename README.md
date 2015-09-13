@@ -1,0 +1,1 @@
+Slack bot that posts Elasticsearch data
