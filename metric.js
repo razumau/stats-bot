@@ -1,6 +1,7 @@
 'use strict';
 // const events = require('eventemitter2');
 const rp = require('request-promise');
+const cron = require('cron');
 
 class Metric {
 	constructor(options, emitter) {
@@ -11,10 +12,11 @@ class Metric {
 			method: "GET"
 		};
 		this.channel = options.channel;
-		this.timeout = options.timeout;
+		this.cronPattern = options.cronPattern;
 		this.shouldRise = options.shouldRise;
 
-		setTimeout(this.getData.bind(this), this.timeout);
+		let this.job = cron.CronJob(this.cronPattern, this.getData.bind(this))
+		//setTimeout(this.getData.bind(this), this.timeout);
 	}
 
 	getData() {
