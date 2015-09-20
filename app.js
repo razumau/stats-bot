@@ -18,7 +18,6 @@ let constructMessage = function (data) {
 	return {
 		json: {
 			text: `*${data.name}*\n${data.text} ${emoji}`,
-			//icon_emoji: emojis.getEmoji(data.mood),
 			channel: data.channel
 		},    
 		url: process.env.SLACK_URL,
@@ -26,7 +25,7 @@ let constructMessage = function (data) {
 	};
 };
 
-app.set('port', (process.env.PORT || 5005));
+//app.set('port', (process.env.PORT || 5005));
 
 emitter.on('receive.*', function (data) {
 	rp(constructMessage(data))
@@ -35,17 +34,3 @@ emitter.on('receive.*', function (data) {
 
 let metrics = _.map(config.metrics, metric => new Metric(metric, emitter));
 
-//console.log(config.BODY);
-/*
-rp({
-	url: "http://kibana.tpminsk.by/elasticsearch/_msearch",
-	method: "POST",
-	body: config.body[0] + '/slice/v1/matrix/cells' + config.body[1],
-}).then(response => parse(response));
-
-function parse (response) {
-	let result = JSON.parse(response);
-
-	let firstWeek = result.responses[0].aggregations['1'].buckets[0]['2'].values['50.0'];
-	console.log(firstWeek);
-}*/

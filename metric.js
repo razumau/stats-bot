@@ -1,7 +1,8 @@
 'use strict';
 // const events = require('eventemitter2');
 const rp = require('request-promise');
-const config = require('./config.js')
+const moment = require('moment');
+const config = require('./config.js');
 let cron = require('cron');
 
 class Metric {
@@ -10,17 +11,13 @@ class Metric {
         this.emitter = emitter;
         this.requestOptions = {
         	url: "http://kibana.tpminsk.by/elasticsearch/_msearch",
-            body: config.body[0] + options.url + config.body[1],
-            method: "POST"
+        	body: buildKibanaRequest(options.url),
+        	method: "POST"
         };
         this.channel = options.channel;
-        this.cronPattern = options.cronPattern;
         this.shouldRise = options.shouldRise;
 
-        this.job = new cron.CronJob(this.cronPattern, this.getData.bind(this), null, true);
-        //let job = cron.CronJob(this.cronPattern, this.getData, null, true);
-
-            //setTimeout(this.getData.bind(this), this.timeout);
+        this.job = new cron.CronJob(options.cronPattern, this.getData.bind(this), null, true);
     }
 
     getData() {
@@ -39,7 +36,7 @@ class Metric {
 
         data.text = `Last week: ${lastWeek.toFixed(3) * 1000} ms.
 This week: ${thisWeek.toFixed(3) * 1000} ms.
-*${this.percentageString(percentage)}*`;
+*${percentageString(percentage)}*`;
 
 
         data.mood = Math.abs(percentage) < 5 
@@ -52,12 +49,39 @@ This week: ${thisWeek.toFixed(3) * 1000} ms.
 
         this.emitter.emit(`receive.${this.name}`, data);
     }
-
-    percentageString(percentage) {
-    	return (percentage < 0)
-    			? `−${Math.abs(percentage.toFixed(1))}%`
-    			: `+${percentage.toFixed(1)}%`
-    }
 }
 
 module.exports = Metric;
+
+function percentageString(percentage) {
+    	return (percentage < 0)
+    			? `−${Math.abs(percentage.toFixed(1))}%`
+    			: `+${percentage.toFixed(1)}%`;
+}
+
+function buildIndices () {
+	let logstashes = [],
+		date = moment().subtract(13, 'days');
+
+	for (let i = 0; i < 14; i++) {
+		logstashes.push(`"logstash-${date.format('YYYY.MM.DD')}"`);
+		date.add(1, 'days');
+	}
+
+	return `{"index":[${logstashes.join(',')}]}\n`;
+}
+
+function buildFilter() {
+	let now = moment().valueOf(),
+		twoWeeksAgo = moment().subtract(2, 'weeks').valueOf();
+
+	return `"filter":{"bool":{"must":[{"range":{"@timestamp":{"gte":${twoWeeksAgo},"lte":${now}}}}}],"must_not":[]}}}},"size":0,"aggs":{"1":{"date_histogram":{"field":"@timestamp","interval":"1w","min_doc_count":1,"extended_bounds":{"min":${twoWeeksAgo},"max":${now}}},"aggs":{"2":{"percentiles":{"field":"response_time","percents":[50]}}}}}}\n`;
+
+}
+
+function buildKibanaRequest(url) {
+      	return buildIndices() 
+      		+ `{"query":{"filtered":{"query":{"query_string":{"query":"uri: \\"`    		
+    		+ `{$options.url}\\""}},`
+    		+ buildFilter();
+}
