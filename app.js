@@ -17,7 +17,7 @@ let constructMessage = function (data) {
 
 	return {
 		json: {
-			text: `${data.name}: ${data.text} ${emoji}`,
+			text: `*${data.name}*\n${data.text} ${emoji}`,
 			//icon_emoji: emojis.getEmoji(data.mood),
 			channel: data.channel
 		},    
