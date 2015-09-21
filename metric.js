@@ -18,6 +18,7 @@ class Metric {
         this.shouldRise = options.shouldRise;
 
         this.job = new cron.CronJob(options.cronPattern, this.getData.bind(this), null, true);
+        console.log(`Cron job for ${this.name} created`);
     }
 
     getData() {
@@ -75,13 +76,13 @@ function buildFilter() {
 	let now = moment().valueOf(),
 		twoWeeksAgo = moment().subtract(2, 'weeks').valueOf();
 
-	return `"filter":{"bool":{"must":[{"range":{"@timestamp":{"gte":${twoWeeksAgo},"lte":${now}}}}}],"must_not":[]}}}},"size":0,"aggs":{"1":{"date_histogram":{"field":"@timestamp","interval":"1w","min_doc_count":1,"extended_bounds":{"min":${twoWeeksAgo},"max":${now}}},"aggs":{"2":{"percentiles":{"field":"response_time","percents":[50]}}}}}}\n`;
+	return `"filter":{"bool":{"must":[{"range":{"@timestamp":{"gte":${twoWeeksAgo},"lte":${now}}}}],"must_not":[]}}}},"size":0,"aggs":{"1":{"date_histogram":{"field":"@timestamp","interval":"1w","min_doc_count":1,"extended_bounds":{"min":${twoWeeksAgo},"max":${now}}},"aggs":{"2":{"percentiles":{"field":"response_time","percents":[50]}}}}}}\n`;
 
 }
 
 function buildKibanaRequest(url) {
       	return buildIndices() 
       		+ `{"query":{"filtered":{"query":{"query_string":{"query":"uri: \\"`    		
-    		+ `{$options.url}\\""}},`
+    		+ `${url}\\""}},`
     		+ buildFilter();
 }
