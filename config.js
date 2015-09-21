@@ -1,58 +1,59 @@
 'use strict';
 const everyMonday = '0 11 * * 1';
+const test = '0 21 * * 1'
 
 module.exports = {
 	metrics: [{
-		name: 'Cells request median time',
+		name: 'Cells median',
 		url: '/slice/v1/matrix/cells',
-		cronPattern: '0 20 * * 0',
+		cronPattern: '0 2 * * *',
 		shouldRise: false,
 		channel: "test-bot"
 
 	}, {
-		name: 'CardsDetails request median time',
-		url: '/slice/v1/matrix/cardsDetails',
-		cronPattern: '0 21 * * 0',
+		name: 'CardsDetails median',
+		url: 'cardsDetails',
+		cronPattern: test,
 		shouldRise: false,
 		channel: "test-bot"
 
 	}, {
-		name: 'GlobalDataTemplates request median time',
+		name: 'GlobalDataTemplates median',
 		url: 'globalDataTemplates',
-		cronPattern: '0 21 * * 0',
+		cronPattern: test,
 		shouldRise: false,
 		channel: "test-bot"
 
 	}, {
-		name: 'AxesCounts request median time',
+		name: 'AxesCounts median',
 		url: '/slice/v1/matrix/axesCounts',
-		cronPattern: '0 22 * * 0',
+		cronPattern: test,
 		shouldRise: false,
 		channel: "test-bot"
 
 	}, {
-		name: 'ViewDataTemplates request median time',
+		name: 'ViewDataTemplates median',
 		url: 'ViewDataTemplates',
-		cronPattern: '0 22 * * 0',
+		cronPattern: test,
 		shouldRise: false,
 		channel: "test-bot"
 
 	}, {
-		name: 'UserStories request median time',
+		name: 'UserStories median',
 		url: '/api/v1/UserStories',
-		cronPattern: '0 22 * * 0',
+		cronPattern: test,
 		shouldRise: false,
 		channel: "test-bot"
 
 	}, {
-		name: 'Context request median time',
+		name: 'Context median',
 		url: '/api/v2/context',
-		cronPattern: '0 22 * * 0',
+		cronPattern: test,
 		shouldRise: false,
 		channel: "test-bot"
 
 	}/*, {
-		name: 'View list request median time',
+		name: 'View list median',
 		url: '("api/views/v1" -"/api/views/v1/view")',
 		cronPattern: '* * * * * *',
 		shouldRise: false,
