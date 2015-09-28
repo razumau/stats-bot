@@ -25,8 +25,6 @@ let constructMessage = function (data) {
 	};
 };
 
-//app.set('port', (process.env.PORT || 5005));
-
 emitter.on('receive.*', function (data) {
 	rp(constructMessage(data))
 		.then(response => console.log(response));
