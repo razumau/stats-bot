@@ -1,6 +1,6 @@
 {
   "name": "slack-stats-bot",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "A Slack bot for posting Elasticsearch data",
   "main": "index.js",
   "scripts": {
@@ -9,6 +9,7 @@
   "author": "Jury Razumau",
   "license": "MIT",
   "dependencies": {
+    "barkline": "1.0.1",
     "cron": "1.0.9",
     "emoji-mood": "^1.0.2",
     "eventemitter2": "^0.4.14",
@@ -16,5 +17,8 @@
     "lodash": "^3.10.1",
     "moment": "^2.10.6",
     "request-promise": "^0.4.3"
+  },
+  "engines": {
+    "node": ">=4.0.0"
   }
 }

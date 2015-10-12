@@ -2,23 +2,42 @@
 const rp = require('request-promise');
 const moment = require('moment');
 const config = require('./config.js');
+const emojis = require('emoji-mood');
 const cron = require('cron');
+const _ = require('lodash');
+const clark = require('clark');
 
 class Metric {
     constructor(options, emitter) {
         this.name = options.name;
         this.emitter = emitter;
-        this.requestOptions = {
-            'median': {
-                    url: "http://kibana.tpminsk.by/elasticsearch/_msearch",
-                    body: buildKibanaRequest(options.url, 50),
+
+        if (options.performance) {
+            this.channel = '#performance';
+            this.requestOptions = {
+                'median': {
+                    url: process.env[options.kibana],
+                    body: buildKibanaRequest(options.searchString, 50),
                     method: "POST"
-        }, '95th': {
-                    url: "http://kibana.tpminsk.by/elasticsearch/_msearch",
-                    body: buildKibanaRequest(options.url, 95),
+                },
+                '95th': {
+                    url: process.env[options.kibana],
+                    body: buildKibanaRequest(options.searchString, 95),
                     method: "POST"
-        } };
-        this.channel = options.channel || 'test-bot';
+                }
+            };
+        } else if (options.product) {
+            this.channel = 'test-bot';
+        } else {
+            this.channel = options.channel || 'test-bot';
+        }
+
+        if (options.kibana === 'logstash') {
+            this.index = 'logstash';
+        } else {
+            this.index = options.index;
+        }
+
         this.shouldRise = options.shouldRise;
 
         this.job = new cron.CronJob(options.cronPattern, this.getData.bind(this), null, true);
@@ -33,29 +52,32 @@ class Metric {
     }
 
     sendData(response, percentile) {
-        let data = {};
+        let data = {},
+            values = _.pluck(_.pluck(JSON.parse(response).responses[0].aggregations['1'].buckets,
+                                `2.values`), percentile);
 
-        let result = JSON.parse(response).responses[0].aggregations['1'];
+        let len = values.length,
+            lastWeek = values[len - 2],
+            thisWeek = values[len - 1],
+            percentage = (thisWeek - lastWeek) / lastWeek * 100;
 
-        let lastWeek = result.buckets[0]['2'].values[percentile],
-        	thisWeek = result.buckets[1]['2'].values[percentile],
-        	percentage = (thisWeek - lastWeek) / lastWeek * 100;
+        data.text = `Last week: ${(lastWeek * 1000).toFixed(0)} ms.\n` 
+                    + `This week: ${(thisWeek * 1000).toFixed(0)} ms.\n` 
+                    + `*${percentageString(percentage)}*`;
 
+        data.mood = Math.abs(percentage) < 10
+            ? 'none' 
+            : (thisWeek > lastWeek) === this.shouldRise 
+                ? 'happy' 
+                : 'sad';
 
-        data.text = `Last week: ${(lastWeek * 1000).toFixed(0)} ms.
-This week: ${(thisWeek * 1000).toFixed(0)} ms.
-*${percentageString(percentage)}*`;
-
-
-        data.mood = Math.abs(percentage) < 5 
-        			? 'none'
-        			: (thisWeek > lastWeek) === this.shouldRise  
-        				? 'happy' 
-        				: 'sad';
         if (data.mood === 'none') {
-            data.channel = '@jury.razumau'
+            data.channel = '@jury.razumau';
         } else {
             data.channel = this.channel;
+            data.text += `${emojis.getEmoji(data.mood)}\n`;
+            values = _.tail(_.map(values, val => (val * 1000).toFixed(0)));
+            data.text += `Previous weeks: ${clark(values)} _(${values.join(', ')})_`;
         }
 
         data.name = `${this.name} ${percentile === '50.0' ? 'median' : '95th percentile'}`;
@@ -67,34 +89,38 @@ This week: ${(thisWeek * 1000).toFixed(0)} ms.
 module.exports = Metric;
 
 function percentageString(percentage) {
-    	return (percentage < 0)
-    			? `−${Math.abs(percentage.toFixed(1))}%`
-    			: `+${percentage.toFixed(1)}%`;
+    return (percentage < 0) 
+        ? `−${Math.abs(percentage.toFixed(1))}%` 
+        : `+${percentage.toFixed(1)}%`;
 }
 
-function buildIndices () {
-	let logstashes = [],
-		date = moment().subtract(13, 'days');
+function buildIndices(index, days) {
+    let indices = [],
+        date = moment().subtract(days - 1, 'days');
 
-	for (let i = 0; i < 14; i++) {
-		logstashes.push(`"logstash-${date.format('YYYY.MM.DD')}"`);
-		date.add(1, 'days');
-	}
+    for (let i = 0; i < days; i++) {
+        indices.push(`"${index}-${date.format('YYYY.MM.DD')}"`);
+        date.add(1, 'days');
+    }
 
-	return `{"index":[${logstashes.join(',')}]}\n`;
+    return `{"index":[${indices.join(',')}]}\n`;
 }
 
-function buildFilter(percentile) {
-	let now = moment().valueOf(),
-		twoWeeksAgo = moment().subtract(2, 'weeks').valueOf();
+function buildFilter(percentile, daysAgo, interval) {
+    let now = moment().valueOf(),
+        earlier = moment().subtract(daysAgo, 'days').valueOf();
 
-	return `"filter":{"bool":{"must":[{"range":{"@timestamp":{"gte":${twoWeeksAgo},"lte":${now}}}}],"must_not":[]}}}},"size":0,"aggs":{"1":{"date_histogram":{"field":"@timestamp","interval":"1w","min_doc_count":1,"extended_bounds":{"min":${twoWeeksAgo},"max":${now}}},"aggs":{"2":{"percentiles":{"field":"response_time","percents":[${percentile}]}}}}}}\n`;
+    if (_.includes(['d', 'w', 'm'], interval) === false) {
+        throw new Error('This interval is not supported');
+    }
+
+    return `"filter":{"bool":{"must":[{"range":{"@timestamp":{"gte":${earlier},"lte":${now}}}}],"must_not":[]}}}},"size":0,"aggs":{"1":{"date_histogram":{"field":"@timestamp","interval":"1${interval}","min_doc_count":1,"extended_bounds":{"min":${earlier},"max":${now}}},"aggs":{"2":{"percentiles":{"field":"response_time","percents":[${percentile}]}}}}}}\n`;
 
 }
 
-function buildKibanaRequest(url, percentile) {
-      	return buildIndices() 
-      		+ `{"query":{"filtered":{"query":{"query_string":{"query":"uri: \\"`    		
-    		+ `${url}\\""}},`
-    		+ buildFilter(percentile);
+function buildKibanaRequest(searchString, percentile) {
+    return buildIndices("logstash", 42) 
+        //+ `{"query":{"filtered":{"query":{"query_string":{"query":"uri: \\"` + `${searchString}\\""}},` 
+        + `{"query":{"filtered":{"query":{"query_string":{"query":"${searchString}"}},` 
+        + buildFilter(percentile, 42, 'w');
 }
