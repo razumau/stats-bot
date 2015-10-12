@@ -3,21 +3,19 @@ const express = require('express');
 const rp = require('request-promise');
 const _ = require('lodash');
 const events = require('eventemitter2');
-const emojis = require('emoji-mood');
+const cron = require('cron');
 const Metric = require('./metric.js');
 const config = require('./config.js');
-const cron = require('cron');
 
 let app = express();
 let emitter = new events.EventEmitter2({wildcard: true});
 
 let constructMessage = function (data) {
-	let date = (new Date()).toLocaleDateString(),
-	    emoji = emojis.getEmoji(data.mood);
+	let date = (new Date()).toLocaleDateString();
 
 	return {
 		json: {
-			text: `*${data.name}*\n${data.text} ${emoji}`,
+			text: `*${data.name}*\n${data.text}`,
 			channel: data.channel
 		},    
 		url: process.env.SLACK_URL,
@@ -31,4 +29,3 @@ emitter.on('receive.*', function (data) {
 });
 
 let metrics = _.map(config.metrics, metric => new Metric(metric, emitter));
-
